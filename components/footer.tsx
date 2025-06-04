@@ -82,7 +82,7 @@ export function Footer() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {[
               { icon: Mail, title: "Email", info: "contato@airscan-capivaras.com.br" },
-              { icon: Phone, title: "Telefone", info: "+55 (11) 9999-9999" },
+              { icon: Phone, title: "Telefone", info: "+55 (47) 9999-9999" },
               { icon: MapPin, title: "Endereço", info: "Blumenau, SC - Brasil" },
             ].map((contact, index) => (
               <div key={index} className="flex items-center space-x-3">
@@ -97,7 +97,7 @@ export function Footer() {
 
           {/* Copyright e Links Legais */}
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 pt-8 border-t border-gray-800">
-            <p className="text-sm text-gray-400">© 2024 AIRscan Capivaras. Todos os direitos reservados.</p>
+            <p className="text-sm text-gray-400">© 2025 AIRscan Capivaras. Todos os direitos reservados.</p>
             <div className="flex space-x-6 text-sm">
               {["Política de Privacidade", "Termos de Uso", "Cookies", "Licenças"].map((link, index) => (
                 <Link key={index} href="/" className="text-gray-400 hover:text-white transition-colors">
