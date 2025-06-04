@@ -46,7 +46,7 @@ export function TxmChallenge() {
           <div className="text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Parceria UniSENAI SC</h3>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              O Desafio TXM é desenvolvido em parceria com o UNISenai SC, unindo a excelência acadêmica com a inovação
+              O Desafio TXM é desenvolvido em parceria com o UniSENAI SC, unindo a excelência acadêmica com a inovação
               tecnológica para transformar a indústria catarinense através da digitalização e otimização de processos de
               ar comprimido.
             </p>
