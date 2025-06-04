@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Activity, Network, Cpu, Database, TrendingUp, CheckCircle, Wifi } from "lucide-react"
 import { db } from "@/lib/firebase"
-import { collection, getDocs } from "firebase/firestore"
+import { collection, getDocs, query, orderBy, limit } from "firebase/firestore"
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -12,44 +12,115 @@ export default function DashboardPage() {
     sensors: 0,
     dataPoints: 0,
     onlineDevices: 0,
-    alerts: 3,
-    efficiency: 94.2,
-    energySaved: 15.7,
+    alerts: 0,
+    efficiency: 0,
+    energySaved: 0,
   })
-
+  const [recentAlerts, setRecentAlerts] = useState<any[]>([])
+  const [topNetworks, setTopNetworks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   // Buscar dados reais do Firebase
   useEffect(() => {
-    fetchRealData()
-  }, [])
+    async function fetchData() {
+      try {
+        // Buscar redes
+        const networksRef = collection(db, "networks")
+        const networksSnapshot = await getDocs(networksRef)
+        const networksCount = networksSnapshot.size
+        const networksList = networksSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
 
-  const fetchRealData = async () => {
-    try {
-      // Buscar redes
-      const networksRef = collection(db, "networks")
-      const networksSnapshot = await getDocs(networksRef)
-      const networksCount = networksSnapshot.size
+        // Buscar ativos
+        const assetsRef = collection(db, "assets")
+        const assetsSnapshot = await getDocs(assetsRef)
+        const assetsCount = assetsSnapshot.size
+        const assetsList = assetsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
 
-      // Buscar ativos
-      const assetsRef = collection(db, "assets")
-      const assetsSnapshot = await getDocs(assetsRef)
-      const assetsCount = assetsSnapshot.size
+        // Buscar alertas
+        const alertsRef = collection(db, "alerts")
+        const alertsQuery = query(alertsRef, orderBy("createdAt", "desc"), limit(3))
+        const alertsSnapshot = await getDocs(alertsQuery)
+        const alertsList = alertsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
 
-      setStats((prev) => ({
-        ...prev,
-        networks: networksCount,
-        equipment: assetsCount,
-        sensors: assetsCount * 4, // Assumindo 4 sensores por ativo
-        dataPoints: assetsCount * 50000, // Dados simulados baseados nos ativos
-        onlineDevices: Math.floor(assetsCount * 0.9), // 90% online
-      }))
-    } catch (error) {
-      console.error("Erro ao buscar dados:", error)
-    } finally {
-      setLoading(false)
+        // Calcular estatísticas
+        const onlineDevices = assetsList.filter((asset) => asset.status === "online").length
+
+        // Preparar dados para as redes principais
+        const networksWithStats = networksList
+          .map((network) => {
+            const networkAssets = assetsList.filter((asset) => asset.networkId === network.id)
+            const onlineNetworkAssets = networkAssets.filter((asset) => asset.status === "online").length
+            const efficiency =
+              networkAssets.length > 0 ? Math.round((onlineNetworkAssets / networkAssets.length) * 100) : 0
+
+            return {
+              id: network.id,
+              name: network.name,
+              devices: networkAssets.length,
+              efficiency,
+              status: efficiency > 90 ? "online" : efficiency > 70 ? "warning" : "offline",
+            }
+          })
+          .sort((a, b) => b.efficiency - a.efficiency)
+          .slice(0, 4)
+
+        // Atualizar estados
+        setStats({
+          networks: networksCount,
+          equipment: assetsCount,
+          sensors: assetsCount * 3, // Estimativa: 3 sensores por ativo
+          dataPoints: assetsCount * 50000, // Estimativa baseada no número de ativos
+          onlineDevices,
+          alerts: alertsList.length,
+          efficiency: 92.5, // Valor médio estimado
+          energySaved: 12.8, // Valor estimado
+        })
+
+        setRecentAlerts(
+          alertsList.length > 0
+            ? alertsList
+            : [
+                {
+                  id: "default-1",
+                  type: "warning",
+                  message: "Sem alertas recentes",
+                  time: "Agora",
+                  network: "Sistema",
+                },
+              ],
+        )
+
+        setTopNetworks(
+          networksWithStats.length > 0
+            ? networksWithStats
+            : [
+                {
+                  id: "default-1",
+                  name: "Sem redes cadastradas",
+                  devices: 0,
+                  efficiency: 0,
+                  status: "offline",
+                },
+              ],
+        )
+      } catch (error) {
+        console.error("Erro ao buscar dados:", error)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
+
+    fetchData()
+  }, [])
 
   const statCards = [
     {
@@ -58,7 +129,7 @@ export default function DashboardPage() {
       icon: Network,
       color: "text-blue-600",
       bgColor: "bg-blue-100",
-      change: "+2 esta semana",
+      change: `${stats.networks} ativas`,
     },
     {
       title: "Equipamentos",
@@ -66,7 +137,7 @@ export default function DashboardPage() {
       icon: Cpu,
       color: "text-green-600",
       bgColor: "bg-green-100",
-      change: "+5 este mês",
+      change: `${stats.onlineDevices} online`,
     },
     {
       title: "Sensores Ativos",
@@ -74,7 +145,7 @@ export default function DashboardPage() {
       icon: Activity,
       color: "text-purple-600",
       bgColor: "bg-purple-100",
-      change: `${stats.onlineDevices}/${stats.equipment} online`,
+      change: `Monitorando dados`,
     },
     {
       title: "Dados Coletados",
@@ -82,7 +153,7 @@ export default function DashboardPage() {
       icon: Database,
       color: "text-orange-600",
       bgColor: "bg-orange-100",
-      change: "+1.2M hoje",
+      change: "Pontos de dados",
     },
     {
       title: "Eficiência Média",
@@ -90,7 +161,7 @@ export default function DashboardPage() {
       icon: TrendingUp,
       color: "text-emerald-600",
       bgColor: "bg-emerald-100",
-      change: "+2.3% vs mês passado",
+      change: "Desempenho do sistema",
     },
     {
       title: "Economia Energética",
@@ -98,39 +169,8 @@ export default function DashboardPage() {
       icon: CheckCircle,
       color: "text-cyan-600",
       bgColor: "bg-cyan-100",
-      change: "R$ 45.2k economizados",
+      change: "Estimativa de economia",
     },
-  ]
-
-  const recentAlerts = [
-    {
-      id: 1,
-      type: "warning",
-      message: "Pressão elevada detectada - Compressor A3",
-      time: "5 min atrás",
-      network: "Fábrica Principal",
-    },
-    {
-      id: 2,
-      type: "error",
-      message: "Sensor de temperatura offline - Linha B",
-      time: "15 min atrás",
-      network: "Unidade Norte",
-    },
-    {
-      id: 3,
-      type: "success",
-      message: "Manutenção preventiva concluída",
-      time: "1 hora atrás",
-      network: "Fábrica Principal",
-    },
-  ]
-
-  const topNetworks = [
-    { name: "Fábrica Principal", devices: 15, efficiency: 96.2, status: "online" },
-    { name: "Unidade Norte", devices: 12, efficiency: 94.8, status: "online" },
-    { name: "Linha de Produção B", devices: 8, efficiency: 92.1, status: "warning" },
-    { name: "Setor Industrial C", devices: 10, efficiency: 95.5, status: "online" },
   ]
 
   if (loading) {
@@ -210,8 +250,8 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl p-6 shadow-sm border">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Redes Principais</h2>
             <div className="space-y-4">
-              {topNetworks.map((network, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+              {topNetworks.map((network) => (
+                <div key={network.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
                   <div className="flex items-center space-x-3">
                     <div
                       className={`w-3 h-3 rounded-full ${

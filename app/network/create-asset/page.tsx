@@ -4,74 +4,93 @@ import { useState, useEffect } from "react"
 import { ArrowLeft, ArrowRight, Check, Wifi, WifiOff } from "lucide-react"
 import Link from "next/link"
 import { db } from "@/lib/firebase"
-import { collection, getDocs, addDoc } from "firebase/firestore"
-
-interface Network {
-  id: string
-  name: string
-  description: string
-  location: string
-}
+import { collection, addDoc, getDocs } from "firebase/firestore"
+import { useRouter } from "next/navigation"
 
 export default function CreateAssetPage() {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
-  const [networks, setNetworks] = useState<Network[]>([])
+  const [networks, setNetworks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [assetData, setAssetData] = useState({
     networkId: "",
+    networkName: "",
     name: "",
-    description: "",
-    type: "",
+    type: "compressor",
     model: "",
+    description: "",
+    location: "",
     maxPressure: "",
     powerRating: "",
-    location: "",
-    apiUrl: "",
+    apiUrl: "https://api-cpsdata-ashy.vercel.app/api/cps-data",
     apiKey: "",
   })
   const [isTestingConnection, setIsTestingConnection] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const steps = [
-    { number: 1, title: "Escolher Rede", description: "Selecione a rede de monitoramento" },
-    { number: 2, title: "Detalhes do Ativo", description: "Informações do compressor" },
+    { number: 1, title: "Selecionar Rede", description: "Escolha a rede para o ativo" },
+    { number: 2, title: "Detalhes do Ativo", description: "Informações do equipamento" },
     { number: 3, title: "Conexão API", description: "Configurar fonte de dados" },
   ]
 
+  // Buscar redes do Firebase
   useEffect(() => {
+    async function fetchNetworks() {
+      try {
+        const networksRef = collection(db, "networks")
+        const snapshot = await getDocs(networksRef)
+        const networksList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        setNetworks(networksList)
+      } catch (error) {
+        console.error("Erro ao buscar redes:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchNetworks()
   }, [])
 
-  const fetchNetworks = async () => {
-    try {
-      const networksRef = collection(db, "networks")
-      const snapshot = await getDocs(networksRef)
-      const networksData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Network[]
-      setNetworks(networksData)
-    } catch (error) {
-      console.error("Erro ao buscar redes:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleInputChange = (field: string, value: string) => {
     setAssetData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleNetworkChange = (networkId: string) => {
+    const selectedNetwork = networks.find((network) => network.id === networkId)
+    if (selectedNetwork) {
+      setAssetData((prev) => ({
+        ...prev,
+        networkId,
+        networkName: selectedNetwork.name,
+        apiUrl: selectedNetwork.apiUrl || "https://api-cpsdata-ashy.vercel.app/api/cps-data",
+        apiKey: selectedNetwork.apiKey || "",
+      }))
+    }
   }
 
   const testApiConnection = async () => {
     setIsTestingConnection(true)
     setConnectionStatus("idle")
 
-    // Simular teste de conexão
-    setTimeout(() => {
-      const success = Math.random() > 0.3 // 70% chance de sucesso
-      setConnectionStatus(success ? "success" : "error")
+    try {
+      // Testar conexão com a API real
+      const response = await fetch(assetData.apiUrl)
+      if (response.ok) {
+        setConnectionStatus("success")
+      } else {
+        setConnectionStatus("error")
+      }
+    } catch (error) {
+      console.error("Erro ao testar conexão:", error)
+      setConnectionStatus("error")
+    } finally {
       setIsTestingConnection(false)
-    }, 2000)
+    }
   }
 
   const handleNext = () => {
@@ -88,15 +107,24 @@ export default function CreateAssetPage() {
 
   const handleSubmit = async () => {
     try {
-      await addDoc(collection(db, "assets"), {
+      setIsSubmitting(true)
+
+      // Salvar ativo no Firebase
+      const assetsRef = collection(db, "assets")
+      const docRef = await addDoc(assetsRef, {
         ...assetData,
         createdAt: new Date(),
         status: "online",
       })
+
+      console.log("Ativo criado com ID:", docRef.id)
       alert("Ativo criado com sucesso!")
+      router.push("/network")
     } catch (error) {
-      console.error("Erro ao criar ativo:", error)
-      alert("Erro ao criar ativo. Tente novamente.")
+      console.error("Erro ao salvar ativo:", error)
+      alert("Erro ao criar ativo. Verifique o console para mais detalhes.")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -121,7 +149,7 @@ export default function CreateAssetPage() {
             Voltar para Rede de Monitoramento
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Criar Novo Ativo</h1>
-          <p className="text-gray-600">Adicione um novo ativo de ar comprimido à sua rede de monitoramento</p>
+          <p className="text-gray-600">Adicione um novo equipamento à sua rede de monitoramento</p>
         </div>
 
         {/* Progress Steps */}
@@ -158,32 +186,38 @@ export default function CreateAssetPage() {
         <div className="bg-white rounded-xl p-8 shadow-sm border">
           {currentStep === 1 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Escolher Rede</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Selecionar Rede</h2>
 
-              {networks.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500 mb-4">Nenhuma rede encontrada.</p>
-                  <Link href="/network/create" className="btn-primary">
-                    Criar Nova Rede
-                  </Link>
+              {networks.length > 0 ? (
+                <div className="space-y-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Rede de Monitoramento *</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {networks.map((network) => (
+                      <div
+                        key={network.id}
+                        className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                          assetData.networkId === network.id
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200 hover:border-blue-300"
+                        }`}
+                        onClick={() => handleNetworkChange(network.id)}
+                      >
+                        <h3 className="font-medium text-gray-900">{network.name}</h3>
+                        <p className="text-sm text-gray-500 mt-1">{network.location || "Sem localização"}</p>
+                        <p className="text-xs text-gray-400 mt-2 truncate">{network.description || "Sem descrição"}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {networks.map((network) => (
-                    <div
-                      key={network.id}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        assetData.networkId === network.id
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                      onClick={() => handleInputChange("networkId", network.id)}
-                    >
-                      <h3 className="font-semibold text-gray-900 mb-2">{network.name}</h3>
-                      <p className="text-sm text-gray-600 mb-1">{network.description}</p>
-                      <p className="text-xs text-gray-500">{network.location}</p>
-                    </div>
-                  ))}
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-4">Nenhuma rede encontrada. Crie uma rede primeiro.</p>
+                  <Link
+                    href="/network/create"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Criar Nova Rede
+                  </Link>
                 </div>
               )}
             </div>
@@ -201,24 +235,22 @@ export default function CreateAssetPage() {
                     value={assetData.name}
                     onChange={(e) => handleInputChange("name", e.target.value)}
                     placeholder="Ex: Compressor A1"
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tipo do Compressor *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tipo do Ativo *</label>
                   <select
                     value={assetData.type}
                     onChange={(e) => handleInputChange("type", e.target.value)}
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
-                    <option value="">Selecione o tipo</option>
-                    <option value="parafuso">Parafuso</option>
-                    <option value="pistao">Pistão</option>
-                    <option value="centrifugo">Centrífugo</option>
-                    <option value="scroll">Scroll</option>
+                    <option value="compressor">Compressor</option>
+                    <option value="sensor">Sensor</option>
+                    <option value="distributor">Distribuidor</option>
                   </select>
                 </div>
 
@@ -229,7 +261,7 @@ export default function CreateAssetPage() {
                     value={assetData.model}
                     onChange={(e) => handleInputChange("model", e.target.value)}
                     placeholder="Ex: Atlas Copco GA30"
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -240,43 +272,45 @@ export default function CreateAssetPage() {
                     value={assetData.location}
                     onChange={(e) => handleInputChange("location", e.target.value)}
                     placeholder="Ex: Setor A - Linha 1"
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Pressão Máxima (bar) *</label>
-                  <input
-                    type="number"
-                    value={assetData.maxPressure}
-                    onChange={(e) => handleInputChange("maxPressure", e.target.value)}
-                    placeholder="Ex: 8"
-                    className="input-field"
-                    required
-                  />
-                </div>
+                {assetData.type === "compressor" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Pressão Máxima (bar)</label>
+                      <input
+                        type="number"
+                        value={assetData.maxPressure}
+                        onChange={(e) => handleInputChange("maxPressure", e.target.value)}
+                        placeholder="Ex: 8"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Potência (kW) *</label>
-                  <input
-                    type="number"
-                    value={assetData.powerRating}
-                    onChange={(e) => handleInputChange("powerRating", e.target.value)}
-                    placeholder="Ex: 30"
-                    className="input-field"
-                    required
-                  />
-                </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Potência (kW)</label>
+                      <input
+                        type="number"
+                        value={assetData.powerRating}
+                        onChange={(e) => handleInputChange("powerRating", e.target.value)}
+                        placeholder="Ex: 30"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Descrição do Ativo</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
                 <textarea
                   value={assetData.description}
                   onChange={(e) => handleInputChange("description", e.target.value)}
-                  placeholder="Descreva as características e função deste ativo"
-                  rows={4}
-                  className="input-field"
+                  placeholder="Descreva o ativo e sua função"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -293,8 +327,8 @@ export default function CreateAssetPage() {
                     type="url"
                     value={assetData.apiUrl}
                     onChange={(e) => handleInputChange("apiUrl", e.target.value)}
-                    placeholder="https://api.exemplo.com/sensor-data"
-                    className="input-field"
+                    placeholder="https://api-cpsdata-ashy.vercel.app/api/cps-data"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                   <p className="text-sm text-gray-500 mt-1">
@@ -309,7 +343,7 @@ export default function CreateAssetPage() {
                     value={assetData.apiKey}
                     onChange={(e) => handleInputChange("apiKey", e.target.value)}
                     placeholder="Chave de autenticação da API"
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -373,8 +407,10 @@ export default function CreateAssetPage() {
               <button
                 onClick={handleNext}
                 disabled={currentStep === 1 && !assetData.networkId}
-                className={`btn-primary flex items-center ${
-                  currentStep === 1 && !assetData.networkId ? "opacity-50 cursor-not-allowed" : ""
+                className={`flex items-center px-6 py-3 rounded-lg font-medium transition-colors ${
+                  currentStep === 1 && !assetData.networkId
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
                 }`}
               >
                 Próximo
@@ -383,15 +419,15 @@ export default function CreateAssetPage() {
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={connectionStatus !== "success"}
+                disabled={connectionStatus !== "success" || isSubmitting || !assetData.name}
                 className={`flex items-center px-6 py-3 rounded-lg font-medium transition-colors ${
-                  connectionStatus !== "success"
+                  connectionStatus !== "success" || isSubmitting || !assetData.name
                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-green-600 hover:bg-green-700 text-white"
                 }`}
               >
                 <Check className="w-4 h-4 mr-2" />
-                Criar Ativo
+                {isSubmitting ? "Criando..." : "Criar Ativo"}
               </button>
             )}
           </div>

@@ -3,8 +3,12 @@
 import { useState } from "react"
 import { ArrowLeft, ArrowRight, Check, Wifi, WifiOff } from "lucide-react"
 import Link from "next/link"
+import { db } from "@/lib/firebase"
+import { collection, addDoc } from "firebase/firestore"
+import { useRouter } from "next/navigation"
 
 export default function CreateNetworkPage() {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [networkData, setNetworkData] = useState({
     name: "",
@@ -14,11 +18,12 @@ export default function CreateNetworkPage() {
     compressorModel: "",
     maxPressure: "",
     powerRating: "",
-    apiUrl: "",
+    apiUrl: "https://api-cpsdata-ashy.vercel.app/api/cps-data",
     apiKey: "",
   })
   const [isTestingConnection, setIsTestingConnection] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const steps = [
     { number: 1, title: "Configurar Rede", description: "Informações básicas da rede" },
@@ -34,12 +39,20 @@ export default function CreateNetworkPage() {
     setIsTestingConnection(true)
     setConnectionStatus("idle")
 
-    // Simular teste de conexão
-    setTimeout(() => {
-      const success = Math.random() > 0.3 // 70% chance de sucesso
-      setConnectionStatus(success ? "success" : "error")
+    try {
+      // Testar conexão com a API real
+      const response = await fetch(networkData.apiUrl)
+      if (response.ok) {
+        setConnectionStatus("success")
+      } else {
+        setConnectionStatus("error")
+      }
+    } catch (error) {
+      console.error("Erro ao testar conexão:", error)
+      setConnectionStatus("error")
+    } finally {
       setIsTestingConnection(false)
-    }, 2000)
+    }
   }
 
   const handleNext = () => {
@@ -54,10 +67,44 @@ export default function CreateNetworkPage() {
     }
   }
 
-  const handleSubmit = () => {
-    // Aqui você salvaria no Firebase
-    console.log("Salvando rede:", networkData)
-    alert("Rede criada com sucesso!")
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true)
+
+      // Salvar rede no Firebase
+      const networksRef = collection(db, "networks")
+      const docRef = await addDoc(networksRef, {
+        ...networkData,
+        createdAt: new Date(),
+        status: "active",
+      })
+
+      console.log("Rede criada com ID:", docRef.id)
+
+      // Criar ativo principal automaticamente
+      const assetsRef = collection(db, "assets")
+      await addDoc(assetsRef, {
+        networkId: docRef.id,
+        networkName: networkData.name,
+        name: `Compressor Principal - ${networkData.name}`,
+        type: "compressor",
+        model: networkData.compressorModel,
+        maxPressure: networkData.maxPressure,
+        powerRating: networkData.powerRating,
+        status: "online",
+        apiUrl: networkData.apiUrl,
+        apiKey: networkData.apiKey,
+        createdAt: new Date(),
+      })
+
+      alert("Rede e ativo principal criados com sucesso!")
+      router.push("/network")
+    } catch (error) {
+      console.error("Erro ao salvar rede:", error)
+      alert("Erro ao criar rede. Verifique o console para mais detalhes.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -117,7 +164,7 @@ export default function CreateNetworkPage() {
                     value={networkData.name}
                     onChange={(e) => handleInputChange("name", e.target.value)}
                     placeholder="Ex: Fábrica Principal"
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -128,8 +175,8 @@ export default function CreateNetworkPage() {
                     type="text"
                     value={networkData.location}
                     onChange={(e) => handleInputChange("location", e.target.value)}
-                    placeholder="Ex: São Paulo, SP"
-                    className="input-field"
+                    placeholder="Ex: Blumenau, SC"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -141,7 +188,7 @@ export default function CreateNetworkPage() {
                   onChange={(e) => handleInputChange("description", e.target.value)}
                   placeholder="Descreva o propósito e características desta rede de monitoramento"
                   rows={4}
-                  className="input-field"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -157,7 +204,7 @@ export default function CreateNetworkPage() {
                   <select
                     value={networkData.compressorType}
                     onChange={(e) => handleInputChange("compressorType", e.target.value)}
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
                     <option value="">Selecione o tipo</option>
@@ -175,7 +222,7 @@ export default function CreateNetworkPage() {
                     value={networkData.compressorModel}
                     onChange={(e) => handleInputChange("compressorModel", e.target.value)}
                     placeholder="Ex: Atlas Copco GA30"
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -186,7 +233,7 @@ export default function CreateNetworkPage() {
                     value={networkData.maxPressure}
                     onChange={(e) => handleInputChange("maxPressure", e.target.value)}
                     placeholder="Ex: 8"
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -198,7 +245,7 @@ export default function CreateNetworkPage() {
                     value={networkData.powerRating}
                     onChange={(e) => handleInputChange("powerRating", e.target.value)}
                     placeholder="Ex: 30"
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -217,8 +264,8 @@ export default function CreateNetworkPage() {
                     type="url"
                     value={networkData.apiUrl}
                     onChange={(e) => handleInputChange("apiUrl", e.target.value)}
-                    placeholder="https://api.exemplo.com/sensor-data"
-                    className="input-field"
+                    placeholder="https://api-cpsdata-ashy.vercel.app/api/cps-data"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                   <p className="text-sm text-gray-500 mt-1">
@@ -233,7 +280,7 @@ export default function CreateNetworkPage() {
                     value={networkData.apiKey}
                     onChange={(e) => handleInputChange("apiKey", e.target.value)}
                     placeholder="Chave de autenticação da API"
-                    className="input-field"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -294,22 +341,25 @@ export default function CreateNetworkPage() {
             </button>
 
             {currentStep < 3 ? (
-              <button onClick={handleNext} className="btn-primary flex items-center">
+              <button
+                onClick={handleNext}
+                className="flex items-center px-6 py-3 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 Próximo
                 <ArrowRight className="w-4 h-4 ml-2" />
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={connectionStatus !== "success"}
+                disabled={connectionStatus !== "success" || isSubmitting}
                 className={`flex items-center px-6 py-3 rounded-lg font-medium transition-colors ${
-                  connectionStatus !== "success"
+                  connectionStatus !== "success" || isSubmitting
                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-green-600 hover:bg-green-700 text-white"
                 }`}
               >
                 <Check className="w-4 h-4 mr-2" />
-                Criar Rede
+                {isSubmitting ? "Criando..." : "Criar Rede"}
               </button>
             )}
           </div>

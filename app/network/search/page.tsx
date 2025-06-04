@@ -1,78 +1,94 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ArrowLeft, Search, Filter, Cpu, Activity, Zap, Gauge, Thermometer } from "lucide-react"
 import Link from "next/link"
+import { db } from "@/lib/firebase"
+import { collection, getDocs } from "firebase/firestore"
 
 export default function SearchAssetsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedType, setSelectedType] = useState("all")
   const [selectedAsset, setSelectedAsset] = useState<any>(null)
+  const [allAssets, setAllAssets] = useState<any[]>([])
+  const [realTimeData, setRealTimeData] = useState<any>({})
+  const [loading, setLoading] = useState(true)
 
-  // Dados simulados de ativos
-  const allAssets = [
-    {
-      id: "comp-1",
-      name: "Compressor A1",
-      type: "compressor",
-      description: "Compressor principal da linha de produção A",
-      network: "Fábrica Principal",
-      status: "online",
-      location: "Setor A - Linha 1",
-    },
-    {
-      id: "comp-2",
-      name: "Compressor B1",
-      type: "compressor",
-      description: "Compressor secundário para backup",
-      network: "Unidade Norte",
-      status: "warning",
-      location: "Setor B - Linha 2",
-    },
-    {
-      id: "sensor-1",
-      name: "Sensor Pressão A1",
-      type: "sensor",
-      description: "Sensor de pressão do compressor A1",
-      network: "Fábrica Principal",
-      status: "online",
-      location: "Compressor A1",
-    },
-    {
-      id: "sensor-2",
-      name: "Sensor Temperatura A1",
-      type: "sensor",
-      description: "Sensor de temperatura do compressor A1",
-      network: "Fábrica Principal",
-      status: "online",
-      location: "Compressor A1",
-    },
-    {
-      id: "dist-1",
-      name: "Distribuidor Principal",
-      type: "distributor",
-      description: "Distribuidor de ar comprimido principal",
-      network: "Fábrica Principal",
-      status: "online",
-      location: "Central de Distribuição",
-    },
-    {
-      id: "sensor-3",
-      name: "Sensor Vibração B1",
-      type: "sensor",
-      description: "Sensor de vibração do compressor B1",
-      network: "Unidade Norte",
-      status: "offline",
-      location: "Compressor B1",
-    },
-  ]
+  // Buscar ativos do Firebase
+  useEffect(() => {
+    async function fetchAssets() {
+      try {
+        // Buscar redes para obter os nomes
+        const networksRef = collection(db, "networks")
+        const networksSnapshot = await getDocs(networksRef)
+        const networksMap = new Map()
+        networksSnapshot.docs.forEach((doc) => {
+          networksMap.set(doc.id, doc.data().name)
+        })
+
+        // Buscar ativos
+        const assetsRef = collection(db, "assets")
+        const assetsSnapshot = await getDocs(assetsRef)
+        const assetsList = assetsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          networkName: networksMap.get(doc.data().networkId) || "Rede não encontrada",
+        }))
+
+        setAllAssets(assetsList)
+      } catch (error) {
+        console.error("Erro ao buscar ativos:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAssets()
+  }, [])
+
+  // Buscar dados em tempo real quando um ativo é selecionado
+  useEffect(() => {
+    if (!selectedAsset || selectedAsset.type !== "compressor") return
+
+    const fetchRealTimeData = async () => {
+      try {
+        const response = await fetch(selectedAsset.apiUrl || "https://api-cpsdata-ashy.vercel.app/api/cps-data")
+        if (response.ok) {
+          const data = await response.json()
+          setRealTimeData({
+            pressure: data.pressure || 7.2,
+            temperature: data.temperature || 45,
+            flow: data.flow || 65,
+            power: data.power || 85,
+            vibration: data.vibration || 2.1,
+          })
+        }
+      } catch (error) {
+        console.error("Erro ao buscar dados em tempo real:", error)
+        // Dados de fallback
+        setRealTimeData({
+          pressure: 7.2,
+          temperature: 45,
+          flow: 65,
+          power: 85,
+          vibration: 2.1,
+        })
+      }
+    }
+
+    fetchRealTimeData()
+
+    // Atualizar a cada 5 segundos
+    const interval = setInterval(fetchRealTimeData, 5000)
+    return () => clearInterval(interval)
+  }, [selectedAsset])
 
   // Filtrar ativos
   const filteredAssets = allAssets.filter((asset) => {
     const matchesSearch =
       asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.network.toLowerCase().includes(searchTerm.toLowerCase())
+      (asset.description && asset.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      asset.networkName.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesType = selectedType === "all" || asset.type === selectedType
     return matchesSearch && matchesType
   })
@@ -106,28 +122,25 @@ export default function SearchAssetsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "online":
-        return "status-online"
+        return "bg-green-100 text-green-800"
       case "warning":
-        return "status-warning"
+        return "bg-yellow-100 text-yellow-800"
       case "offline":
-        return "status-offline"
+        return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
   }
 
-  // Dados simulados em tempo real para o ativo selecionado
-  const getRealTimeData = (assetId: string) => {
-    if (assetId.includes("comp")) {
-      return {
-        pressure: 7.2 + Math.random() * 0.6,
-        temperature: 45 + Math.random() * 5,
-        power: 85 + Math.random() * 10,
-        vibration: 2.1 + Math.random() * 0.4,
-        efficiency: 90 + Math.random() * 8,
-      }
-    }
-    return null
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando ativos...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -200,11 +213,15 @@ export default function SearchAssetsPage() {
                           </div>
                           <div>
                             <h3 className="font-semibold text-gray-900">{asset.name}</h3>
-                            <p className="text-sm text-gray-600">{asset.description}</p>
+                            <p className="text-sm text-gray-600">{asset.description || "Sem descrição"}</p>
                             <div className="flex items-center space-x-4 mt-1">
-                              <span className="text-xs text-gray-500">{asset.network}</span>
-                              <span className="text-xs text-gray-400">•</span>
-                              <span className="text-xs text-gray-500">{asset.location}</span>
+                              <span className="text-xs text-gray-500">{asset.networkName}</span>
+                              {asset.location && (
+                                <>
+                                  <span className="text-xs text-gray-400">•</span>
+                                  <span className="text-xs text-gray-500">{asset.location}</span>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -259,82 +276,70 @@ export default function SearchAssetsPage() {
                     <div className="space-y-2 pt-4 border-t">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Rede:</span>
-                        <span className="font-medium">{selectedAsset.network}</span>
+                        <span className="font-medium">{selectedAsset.networkName}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Localização:</span>
-                        <span className="font-medium">{selectedAsset.location}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Descrição:</span>
-                        <span className="font-medium text-right max-w-40">{selectedAsset.description}</span>
-                      </div>
+                      {selectedAsset.location && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Localização:</span>
+                          <span className="font-medium">{selectedAsset.location}</span>
+                        </div>
+                      )}
+                      {selectedAsset.model && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Modelo:</span>
+                          <span className="font-medium">{selectedAsset.model}</span>
+                        </div>
+                      )}
+                      {selectedAsset.description && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Descrição:</span>
+                          <span className="font-medium text-right max-w-40">{selectedAsset.description}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Real-time Data */}
-                {selectedAsset.type === "compressor" && (
+                {selectedAsset.type === "compressor" && realTimeData.pressure && (
                   <div className="bg-white rounded-xl p-6 shadow-sm border">
                     <h2 className="text-xl font-semibold text-gray-900 mb-4">Dados em Tempo Real</h2>
 
-                    {(() => {
-                      const data = getRealTimeData(selectedAsset.id)
-                      return data ? (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 gap-4">
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center space-x-2">
-                                <Gauge className="w-5 h-5 text-blue-500" />
-                                <span className="text-gray-700">Pressão</span>
-                              </div>
-                              <span className="font-semibold">{data.pressure.toFixed(1)} bar</span>
-                            </div>
-
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center space-x-2">
-                                <Thermometer className="w-5 h-5 text-red-500" />
-                                <span className="text-gray-700">Temperatura</span>
-                              </div>
-                              <span className="font-semibold">{data.temperature.toFixed(0)}°C</span>
-                            </div>
-
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center space-x-2">
-                                <Zap className="w-5 h-5 text-yellow-500" />
-                                <span className="text-gray-700">Potência</span>
-                              </div>
-                              <span className="font-semibold">{data.power.toFixed(0)} kW</span>
-                            </div>
-
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center space-x-2">
-                                <Activity className="w-5 h-5 text-purple-500" />
-                                <span className="text-gray-700">Vibração</span>
-                              </div>
-                              <span className="font-semibold">{data.vibration.toFixed(1)} mm/s</span>
-                            </div>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <Gauge className="w-5 h-5 text-blue-500" />
+                            <span className="text-gray-700">Pressão</span>
                           </div>
-
-                          <div className="pt-4 border-t">
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-gray-700">Eficiência</span>
-                              <span className="font-semibold">{data.efficiency.toFixed(1)}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-green-500 h-2 rounded-full transition-all duration-500"
-                                style={{ width: `${data.efficiency}%` }}
-                              ></div>
-                            </div>
-                          </div>
+                          <span className="font-semibold">{realTimeData.pressure.toFixed(1)} bar</span>
                         </div>
-                      ) : (
-                        <p className="text-gray-500 text-center py-4">
-                          Dados em tempo real não disponíveis para este tipo de ativo
-                        </p>
-                      )
-                    })()}
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <Thermometer className="w-5 h-5 text-red-500" />
+                            <span className="text-gray-700">Temperatura</span>
+                          </div>
+                          <span className="font-semibold">{realTimeData.temperature.toFixed(0)}°C</span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <Zap className="w-5 h-5 text-yellow-500" />
+                            <span className="text-gray-700">Fluxo</span>
+                          </div>
+                          <span className="font-semibold">{realTimeData.flow.toFixed(0)} m³/min</span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <Activity className="w-5 h-5 text-purple-500" />
+                            <span className="text-gray-700">Potência</span>
+                          </div>
+                          <span className="font-semibold">{realTimeData.power.toFixed(0)} kW</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </>
