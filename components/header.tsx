@@ -13,6 +13,7 @@ const navigation = [
     href: "/network",
     submenu: [
       { name: "Criar Nova Rede", href: "/network/create" },
+      { name: "Criar Novo Ativo", href: "/network/create-asset" },
       { name: "Topologia de Ativos", href: "/network/topology" },
       { name: "Procurar Ativos", href: "/network/search" },
     ],
@@ -30,7 +31,8 @@ export function Header() {
   return (
     <header className="bg-white shadow-sm border-b sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        {/* Primeira linha: Logo + Auth */}
+        <div className="flex justify-between items-center h-16 border-b border-gray-100">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -39,8 +41,23 @@ export function Header() {
             <span className="text-xl font-bold text-gray-900">AIRscan Capivaras</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
+          {/* Auth Buttons - Desktop */}
+          <div className="hidden md:flex items-center space-x-4">
+            <button className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">Login</button>
+            <button className="btn-primary">Comece Agora</button>
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden">
+            <button onClick={() => setIsOpen(!isOpen)} className="text-gray-700 hover:text-blue-600 p-2">
+              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Segunda linha: Navigation - Desktop */}
+        <div className="hidden md:block">
+          <nav className="flex space-x-8 h-12 items-center">
             {navigation.map((item) => (
               <div key={item.name} className="relative group">
                 <Link
@@ -75,19 +92,6 @@ export function Header() {
               </div>
             ))}
           </nav>
-
-          {/* Auth Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
-            <button className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">Login</button>
-            <button className="btn-primary">Começar Agora</button>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button onClick={() => setIsOpen(!isOpen)} className="text-gray-700 hover:text-blue-600 p-2">
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
         </div>
 
         {/* Mobile Navigation */}
@@ -121,11 +125,11 @@ export function Header() {
                   )}
                 </div>
               ))}
-              <div className="pt-4 space-y-2">
+              <div className="pt-4 space-y-2 border-t">
                 <button className="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600">
                   Login
                 </button>
-                <button className="btn-primary w-full">Começar Agora</button>
+                <button className="btn-primary w-full">Comece Agora</button>
               </div>
             </div>
           </div>

@@ -83,7 +83,7 @@ export function Footer() {
             {[
               { icon: Mail, title: "Email", info: "contato@airscan-capivaras.com.br" },
               { icon: Phone, title: "Telefone", info: "+55 (11) 9999-9999" },
-              { icon: MapPin, title: "Endereço", info: "São Paulo, SP - Brasil" },
+              { icon: MapPin, title: "Endereço", info: "Blumenau, SC - Brasil" },
             ].map((contact, index) => (
               <div key={index} className="flex items-center space-x-3">
                 <contact.icon className="w-5 h-5 text-blue-400" />

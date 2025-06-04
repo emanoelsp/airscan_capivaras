@@ -7,7 +7,8 @@ export function TxmChallenge() {
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-gray-900 mb-4">Desafio TXM</h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Participe do nosso desafio de transformação digital e otimização de processos industriais
+            Participe do nosso desafio de transformação digital em parceria com o UNISenai SC para otimização de
+            processos industriais
           </p>
         </div>
 
@@ -38,6 +39,18 @@ export function TxmChallenge() {
               <p className="text-gray-600 mb-6">{item.desc}</p>
             </div>
           ))}
+        </div>
+
+        {/* Partnership Section */}
+        <div className="bg-blue-50 rounded-xl p-8 mb-12">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Parceria UNISenai SC</h3>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              O Desafio TXM é desenvolvido em parceria com o UNISenai SC, unindo a excelência acadêmica com a inovação
+              tecnológica para transformar a indústria catarinense através da digitalização e otimização de processos de
+              ar comprimido.
+            </p>
+          </div>
         </div>
 
         <div className="text-center">

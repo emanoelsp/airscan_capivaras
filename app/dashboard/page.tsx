@@ -2,32 +2,54 @@
 
 import { useState, useEffect } from "react"
 import { Activity, Network, Cpu, Database, TrendingUp, CheckCircle, Wifi } from "lucide-react"
+import { db } from "@/lib/firebase"
+import { collection, getDocs } from "firebase/firestore"
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
-    networks: 12,
-    equipment: 45,
-    sensors: 180,
-    dataPoints: 2847392,
-    onlineDevices: 42,
+    networks: 0,
+    equipment: 0,
+    sensors: 0,
+    dataPoints: 0,
+    onlineDevices: 0,
     alerts: 3,
     efficiency: 94.2,
     energySaved: 15.7,
   })
 
-  // Simular atualizações em tempo real
+  const [loading, setLoading] = useState(true)
+
+  // Buscar dados reais do Firebase
   useEffect(() => {
-    const interval = setInterval(() => {
+    fetchRealData()
+  }, [])
+
+  const fetchRealData = async () => {
+    try {
+      // Buscar redes
+      const networksRef = collection(db, "networks")
+      const networksSnapshot = await getDocs(networksRef)
+      const networksCount = networksSnapshot.size
+
+      // Buscar ativos
+      const assetsRef = collection(db, "assets")
+      const assetsSnapshot = await getDocs(assetsRef)
+      const assetsCount = assetsSnapshot.size
+
       setStats((prev) => ({
         ...prev,
-        dataPoints: prev.dataPoints + Math.floor(Math.random() * 100),
-        efficiency: 90 + Math.random() * 8,
-        energySaved: 10 + Math.random() * 10,
+        networks: networksCount,
+        equipment: assetsCount,
+        sensors: assetsCount * 4, // Assumindo 4 sensores por ativo
+        dataPoints: assetsCount * 50000, // Dados simulados baseados nos ativos
+        onlineDevices: Math.floor(assetsCount * 0.9), // 90% online
       }))
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [])
+    } catch (error) {
+      console.error("Erro ao buscar dados:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const statCards = [
     {
@@ -110,6 +132,17 @@ export default function DashboardPage() {
     { name: "Linha de Produção B", devices: 8, efficiency: 92.1, status: "warning" },
     { name: "Setor Industrial C", devices: 10, efficiency: 95.5, status: "online" },
   ]
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

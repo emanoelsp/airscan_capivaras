@@ -181,7 +181,7 @@ export default function AboutPage() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Endereço</h4>
-                      <p className="text-gray-600">São Paulo, SP - Brasil</p>
+                      <p className="text-gray-600">Blumenau, SC - Brasil</p>
                     </div>
                   </div>
                 </div>

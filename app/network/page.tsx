@@ -12,7 +12,7 @@ export default function NetworkPage() {
         </div>
 
         {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Criar Nova Rede */}
           <Link href="/network/create" className="group">
             <div className="bg-white rounded-xl p-8 shadow-sm border hover:shadow-lg transition-all duration-200 group-hover:-translate-y-1">
@@ -24,6 +24,18 @@ export default function NetworkPage() {
                 Configure uma nova rede de monitoramento para seus compressores de ar comprimido
               </p>
               <div className="text-blue-600 font-medium group-hover:text-blue-700">Começar configuração →</div>
+            </div>
+          </Link>
+
+          {/* Criar Novo Ativo */}
+          <Link href="/network/create-asset" className="group">
+            <div className="bg-white rounded-xl p-8 shadow-sm border hover:shadow-lg transition-all duration-200 group-hover:-translate-y-1">
+              <div className="w-16 h-16 bg-orange-100 rounded-xl flex items-center justify-center mb-6 group-hover:bg-orange-200 transition-colors">
+                <Plus className="w-8 h-8 text-orange-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Criar Novo Ativo</h3>
+              <p className="text-gray-600 mb-4">Adicione um novo ativo de ar comprimido a uma rede existente</p>
+              <div className="text-orange-600 font-medium group-hover:text-orange-700">Adicionar ativo →</div>
             </div>
           </Link>
 
