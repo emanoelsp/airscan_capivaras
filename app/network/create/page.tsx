@@ -268,7 +268,7 @@ export default function CreateNetworkPage() {
                     type="url"
                     value={networkData.apiUrl}
                     onChange={(e) => handleInputChange("apiUrl", e.target.value)}
-                    placeholder="https://api-cpsdata-ashy.vercel.app/api/cps-data"
+                    placeholder="https://api-teste.app.com"
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
