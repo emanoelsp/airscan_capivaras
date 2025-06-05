@@ -3,43 +3,13 @@ import { Check, Star, Zap, Shield, ArrowRight } from "lucide-react"
 export function SaasCommercial() {
   const plans = [
     {
-      name: "Starter",
-      price: "R$ 297",
+      name: "Sistema SaaS",
+      price: "R$ 49,90",
       period: "/mês",
-      description: "Ideal para pequenas empresas",
+      description: "Ideal para todas empresas",
       features: [
-        "Até 3 compressores",
-        "Dashboard básico",
-        "Alertas por email",
-        "Relatórios mensais",
-        "Suporte por email",
-      ],
-      popular: false,
-    },
-    {
-      name: "Professional",
-      price: "R$ 597",
-      period: "/mês",
-      description: "Para empresas em crescimento",
-      features: [
-        "Até 10 compressores",
-        "Dashboard avançado",
-        "Alertas WhatsApp + Email",
-        "Relatórios personalizados",
-        "API de integração",
-        "Suporte prioritário",
-        "Análise preditiva",
-      ],
-      popular: true,
-    },
-    {
-      name: "Enterprise",
-      price: "Sob consulta",
-      period: "",
-      description: "Para grandes operações",
-      features: [
-        "Compressores ilimitados",
-        "Dashboard personalizado",
+        "Valor por rede monitorada",
+        "Dashboard completo",
         "Alertas multi-canal",
         "Relatórios em tempo real",
         "API completa",
@@ -47,8 +17,8 @@ export function SaasCommercial() {
         "IA avançada",
         "Integração ERP/MES",
       ],
-      popular: false,
-    },
+      popular: true,
+    }
   ]
 
   return (
