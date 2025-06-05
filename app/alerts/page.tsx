@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, where, addDoc } from "firebase/firestore"
 import { Gauge } from "lucide-react"
+import { toast } from "react-hot-toast"
 
 interface Network {
   id: string
@@ -137,10 +138,10 @@ export default function AlertsPage() {
         maxValue: 100,
         enabled: true,
       })
-      alert("Alerta criado com sucesso!")
+      toast.success("Alerta criado com sucesso!")
     } catch (error) {
       console.error("Erro ao criar alerta:", error)
-      alert("Erro ao criar alerta. Tente novamente.")
+      toast.error("Erro ao criar alerta. Tente novamente.")
     }
   }
 

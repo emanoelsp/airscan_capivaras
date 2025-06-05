@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "AIRscan Capivaras - Monitoramento Inteligente de Ar Comprimido",
   description: "Sistema SaaS para monitoramento em tempo real de compressores de ar comprimido",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({

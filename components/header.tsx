@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X, Activity } from "lucide-react"
+import { Menu, X, Activity, ChevronDown } from "lucide-react"
 
 const navigation = [
   { name: "Início", href: "/" },
@@ -18,7 +18,14 @@ const navigation = [
       { name: "Procurar Ativos", href: "/network/search" },
     ],
   },
-  { name: "Relatórios", href: "/reports" },
+  {
+    name: "Análise de Dados",
+    href: "/analysis",
+    submenu: [
+      { name: "Relatórios de Uso", href: "/analysis/reports" },
+      { name: "Análises com IA", href: "/analysis/ai" },
+    ],
+  },
   { name: "Alertas", href: "/alerts" },
   { name: "Sobre", href: "/about" },
 ]
@@ -38,7 +45,10 @@ export function Header() {
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
               <Activity className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900">AIRscan Capivaras</span>
+            <div>
+              <span className="text-xl font-bold text-gray-900">AIRscan Capivaras</span>
+              <div className="text-xs text-gray-500">Blumenau, SC</div>
+            </div>
           </Link>
 
           {/* Auth Buttons - Desktop */}
@@ -62,13 +72,16 @@ export function Header() {
               <div key={item.name} className="relative group">
                 <Link
                   href={item.href}
-                  className={`text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors ${
-                    pathname === item.href ? "text-blue-600" : ""
+                  className={`text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors flex items-center ${
+                    pathname === item.href || (item.submenu && item.submenu.some((sub) => pathname === sub.href))
+                      ? "text-blue-600"
+                      : ""
                   }`}
                   onMouseEnter={() => item.submenu && setActiveSubmenu(item.name)}
                   onMouseLeave={() => setActiveSubmenu(null)}
                 >
                   {item.name}
+                  {item.submenu && <ChevronDown className="w-4 h-4 ml-1" />}
                 </Link>
 
                 {/* Submenu */}
@@ -138,3 +151,5 @@ export function Header() {
     </header>
   )
 }
+
+export default Header
