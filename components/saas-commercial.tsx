@@ -2,11 +2,22 @@ import { Check, Star, Zap, Shield, ArrowRight } from "lucide-react"
 
 export function SaasCommercial() {
   const plans = [
-      {
-      name: "Mintormaneto de redes de ar comprimido",
-      price: "Dados em tempo real",
+       {
+      name: "Sistema SaaS",
+      price: "R$ 49,90",
+      period: "/mês",
+      description: "Ideal para todas empresas",
+      features: [
+        "Valor por rede monitorada",
+        "Dashboard completo",
+        "Alertas multi-canal",
+        "Relatórios em tempo real",
+        "API completa",
+        "Suporte 24/7",
+        "IA avançada",
+        "Integração ERP/MES",
       ],
-      popular: false,
+      popular: true,
     },
     {
       name: "Sistema SaaS",
@@ -25,11 +36,22 @@ export function SaasCommercial() {
       ],
       popular: true,
     },
-       {
-      name: "Análise avançada",
-      price: "Tudo sobre seu consumo",
+     {
+      name: "Sistema SaaS",
+      price: "R$ 49,90",
+      period: "/mês",
+      description: "Ideal para todas empresas",
+      features: [
+        "Valor por rede monitorada",
+        "Dashboard completo",
+        "Alertas multi-canal",
+        "Relatórios em tempo real",
+        "API completa",
+        "Suporte 24/7",
+        "IA avançada",
+        "Integração ERP/MES",
       ],
-      popular: false,
+      popular: true,
     },
   ]
 
