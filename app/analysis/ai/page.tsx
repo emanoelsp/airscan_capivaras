@@ -124,76 +124,47 @@ export default function AIAnalysisPage() {
     setLoadingData(true)
     try {
       const asset = assets.find((a) => a.id === selectedAsset)
-      if (!asset || !asset.apiUrl) {
-        throw new Error("URL da API não encontrada para este ativo")
+      const network = networks.find((n) => n.id === selectedNetwork)
+
+      if (!asset) {
+        throw new Error("Ativo não encontrado")
       }
 
-      const apiUrl = `http://18.212.36.236:8080/${selectedEndpoint}/${selectedPeriod}`
+      // Use the asset's apiUrl if available, otherwise fall back to network's apiUrl
+      const baseApiUrl = asset.apiUrl || network?.apiUrl || "http://18.212.36.236:8080"
+
+      // Construct the API URL based on the selected endpoint and period
+      const apiUrl = `${baseApiUrl}/${selectedEndpoint}/${selectedPeriod}`
+
+      console.log("Fetching data from:", apiUrl)
 
       const response = await fetch(apiUrl)
-      if (!response.ok) throw new Error("Erro ao buscar dados da API")
+      if (!response.ok) throw new Error(`Erro ao buscar dados da API: ${response.status}`)
 
       const data = await response.json()
       setApiData(data)
       showNotification("success", "Dados carregados com sucesso!")
     } catch (error) {
       console.error("Erro ao buscar dados:", error)
-      showNotification("error", "Erro ao carregar dados da API")
+      showNotification(
+        "error",
+        `Erro ao carregar dados da API: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
+      )
 
-      if (selectedEndpoint === "metricasBasicas") {
-        setApiData({
-          "número de leituras": 4717,
-          "valor mínimo": 5.587333,
-          "valor máximo": 10.177,
-          média: 7.74224479732881,
-          mediana: 7.812667,
-          "desvio padrão": 1.22822881034515,
-          explicação: "Essas são métricas descritivas fundamentais para entender a distribuição dos dados de pressão.",
-        })
-      } else if (selectedEndpoint === "metricasCompleta") {
-        setApiData({
-          "número de leituras": 4717,
-          "valor mínimo": 5.587,
-          "valor máximo": 10.177,
-          média: 7.74,
-          mediana: 7.81,
-          "desvio padrão": 1.22,
-          "MAD (desvio absoluto médio)": 1.03,
-          "delta (diferença entre último e primeiro valor)": 0.25,
-          "taxa de variação (rate of change)": 5e-5,
-          "z-score médio": 0.84,
-          explicação:
-            "As métricas completas trazem uma análise mais aprofundada da variabilidade e comportamento dos dados, incluindo desvios e anomalias.",
-        })
-      } else if (selectedEndpoint === "tendencia") {
-        setApiData({
-          "inclinação (slope)": 0.0023,
-          tendência: "positiva",
-          "aceleração média": 0.001,
-          explicação:
-            "A inclinação mostra a direção da tendência dos dados. A aceleração revela se essa tendência está se intensificando ou diminuindo ao longo do tempo.",
-        })
-      } else if (selectedEndpoint === "qualidadeDados") {
-        setApiData({
-          "leituras idênticas consecutivas": 152,
-          "variação relativa média": 0.034,
-          "qualidade geral": "boa",
-          explicação:
-            "A presença de muitos valores repetidos ou pouca variação pode indicar sensores travados, falta de atualização ou problemas na coleta.",
-        })
-      } else if (selectedEndpoint === "dadosBrutos") {
-        setApiData([
-          { timestamp: 1748820000, valor: 7.774 },
-          { timestamp: 1748820300, valor: 7.765 },
-          { timestamp: 1748820600, valor: 7.781 },
-          { timestamp: 1748820900, valor: 7.792 },
-          { timestamp: 1748821200, valor: 7.803 },
-          { timestamp: 1748821500, valor: 7.815 },
-          { timestamp: 1748821800, valor: 7.826 },
-          { timestamp: 1748822100, valor: 7.837 },
-          { timestamp: 1748822400, valor: 7.848 },
-          { timestamp: 1748822700, valor: 7.859 },
-        ])
+      // Fallback to the actual API endpoints if the asset/network specific ones fail
+      try {
+        const fallbackUrl = `http://18.212.36.236:8080/${selectedEndpoint}${selectedEndpoint === "dadosBrutos" ? "" : `/${selectedPeriod}`}`
+        console.log("Trying fallback URL:", fallbackUrl)
+
+        const fallbackResponse = await fetch(fallbackUrl)
+        if (!fallbackResponse.ok) throw new Error("Fallback API request failed")
+
+        const fallbackData = await fallbackResponse.json()
+        setApiData(fallbackData)
+        showNotification("info", "Dados carregados do servidor de backup")
+      } catch (fallbackError) {
+        console.error("Erro no fallback:", fallbackError)
+        showNotification("error", "Não foi possível carregar dados de nenhuma fonte")
       }
     } finally {
       setLoadingData(false)
@@ -208,46 +179,92 @@ export default function AIAnalysisPage() {
 
     setAnalyzing(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 3000))
+      // Try to use an AI analysis API if available
+      const asset = assets.find((a) => a.id === selectedAsset)
+      const network = networks.find((n) => n.id === selectedNetwork)
+      const baseApiUrl = asset?.apiUrl || network?.apiUrl || "http://18.212.36.236:8080"
 
-      const analysis = `
-## 📊 Análise Técnica dos Dados de Pressão
+      try {
+        const aiApiUrl = `${baseApiUrl}/analiseIA/${selectedEndpoint}/${selectedPeriod}`
+        console.log("Fetching AI analysis from:", aiApiUrl)
 
-### Comportamento Geral do Sistema
-Com base nos dados coletados (${apiData["número de leituras"] || "N/A"} leituras), o sistema apresenta:
+        const response = await fetch(aiApiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(apiData),
+        })
 
-**Faixa Operacional:** ${apiData["valor mínimo"]?.toFixed(2) || "N/A"} - ${apiData["valor máximo"]?.toFixed(2) || "N/A"} bar
-**Pressão Média:** ${apiData["média"]?.toFixed(2) || "N/A"} bar
-**Desvio Padrão:** ${apiData["desvio padrão"]?.toFixed(2) || "N/A"} bar
+        if (response.ok) {
+          const aiResult = await response.json()
+          setAiAnalysis(aiResult.analysis || aiResult.resultado || JSON.stringify(aiResult))
+          showNotification("success", "Análise de IA concluída!")
+          return
+        }
+      } catch (aiError) {
+        console.error("Erro ao buscar análise de IA:", aiError)
+      }
 
-### 🔍 Diagnóstico
-${apiData["desvio padrão"] ? `O desvio padrão de ${apiData["desvio padrão"]?.toFixed(2)} bar indica uma **variabilidade moderada** no sistema. Esta oscilação pode estar relacionada a:` : "A análise dos dados indica que:"}
+      // If AI API fails or is not available, generate a simple analysis based on the data
+      let analysis = "## 📊 Análise Técnica dos Dados\n\n"
 
-- Ciclos normais de carga/descarga do compressor
-- Variações na demanda de ar comprimido
-- Possível necessidade de ajuste fino no controlador
+      if (apiData["número de leituras"] || apiData.length) {
+        analysis += `### Comportamento Geral do Sistema\n`
+        analysis += `Com base nos dados coletados (${apiData["número de leituras"] || (Array.isArray(apiData) ? apiData.length : "N/A")} leituras), o sistema apresenta:\n\n`
 
-### ⚠️ Pontos de Atenção
-1. **Amplitude de Variação:** ${apiData["valor máximo"] && apiData["valor mínimo"] ? `A diferença entre máximo e mínimo (${(apiData["valor máximo"] - apiData["valor mínimo"])?.toFixed(2)} bar) sugere ciclos de trabalho normais` : "Monitorar a amplitude de variação da pressão"}
-2. **Estabilidade:** Monitorar se a variação está dentro dos parâmetros aceitáveis para o tipo de aplicação
-${apiData["tendência"] ? `3. **Tendência:** Os dados mostram uma tendência ${apiData["tendência"]} que deve ser monitorada` : ""}
+        if (apiData["valor mínimo"] !== undefined && apiData["valor máximo"] !== undefined) {
+          analysis += `**Faixa Operacional:** ${apiData["valor mínimo"]?.toFixed(2) || "N/A"} - ${apiData["valor máximo"]?.toFixed(2) || "N/A"} bar\n`
+        }
 
-### 🔧 Recomendações de Manutenção
-1. **Verificar filtros de ar** - Filtros sujos podem causar oscilações de pressão
-2. **Inspeção das válvulas** - Verificar funcionamento das válvulas de alívio e regulagem
-3. **Calibração de sensores** - Validar precisão dos sensores de pressão
-4. **Análise de vazamentos** - Investigar possíveis vazamentos no sistema
+        if (apiData["média"] !== undefined) {
+          analysis += `**Pressão Média:** ${apiData["média"]?.toFixed(2) || "N/A"} bar\n`
+        }
 
-### 📈 Otimizações Sugeridas
-- Implementar controle preditivo para reduzir oscilações
-- Considerar ajuste dos setpoints de pressão
-- Avaliar necessidade de reservatório adicional para estabilização
+        if (apiData["desvio padrão"] !== undefined) {
+          analysis += `**Desvio Padrão:** ${apiData["desvio padrão"]?.toFixed(2) || "N/A"} bar\n\n`
 
-### 🎯 Próximos Passos
-1. Monitorar tendência por mais 7 dias
-2. Comparar com dados históricos
-3. Agendar manutenção preventiva se necessário
-      `
+          analysis += `### 🔍 Diagnóstico\n`
+          analysis += `O desvio padrão de ${apiData["desvio padrão"]?.toFixed(2)} bar indica uma **variabilidade ${apiData["desvio padrão"] > 1.5 ? "alta" : apiData["desvio padrão"] > 0.8 ? "moderada" : "baixa"}** no sistema. Esta oscilação pode estar relacionada a:\n\n`
+          analysis += `- Ciclos normais de carga/descarga do compressor\n`
+          analysis += `- Variações na demanda de ar comprimido\n`
+          analysis += `- Possível necessidade de ajuste fino no controlador\n\n`
+        }
+
+        analysis += `### ⚠️ Pontos de Atenção\n`
+
+        if (apiData["valor máximo"] !== undefined && apiData["valor mínimo"] !== undefined) {
+          const amplitude = apiData["valor máximo"] - apiData["valor mínimo"]
+          analysis += `1. **Amplitude de Variação:** A diferença entre máximo e mínimo (${amplitude.toFixed(2)} bar) sugere ${amplitude > 3 ? "ciclos de trabalho intensos" : "ciclos de trabalho normais"}\n`
+        } else {
+          analysis += `1. **Amplitude de Variação:** Monitorar a amplitude de variação da pressão\n`
+        }
+
+        analysis += `2. **Estabilidade:** Monitorar se a variação está dentro dos parâmetros aceitáveis para o tipo de aplicação\n`
+
+        if (apiData["tendência"]) {
+          analysis += `3. **Tendência:** Os dados mostram uma tendência ${apiData["tendência"]} que deve ser monitorada\n\n`
+        }
+
+        analysis += `\n### 🔧 Recomendações de Manutenção\n`
+        analysis += `1. **Verificar filtros de ar** - Filtros sujos podem causar oscilações de pressão\n`
+        analysis += `2. **Inspeção das válvulas** - Verificar funcionamento das válvulas de alívio e regulagem\n`
+        analysis += `3. **Calibração de sensores** - Validar precisão dos sensores de pressão\n`
+        analysis += `4. **Análise de vazamentos** - Investigar possíveis vazamentos no sistema\n\n`
+
+        analysis += `### 📈 Otimizações Sugeridas\n`
+        analysis += `- Implementar controle preditivo para reduzir oscilações\n`
+        analysis += `- Considerar ajuste dos setpoints de pressão\n`
+        analysis += `- Avaliar necessidade de reservatório adicional para estabilização\n\n`
+
+        analysis += `### 🎯 Próximos Passos\n`
+        analysis += `1. Monitorar tendência por mais 7 dias\n`
+        analysis += `2. Comparar com dados históricos\n`
+        analysis += `3. Agendar manutenção preventiva se necessário\n`
+      } else {
+        analysis +=
+          "Não foi possível gerar uma análise detalhada com os dados disponíveis. Verifique se os dados estão completos e tente novamente."
+      }
 
       setAiAnalysis(analysis)
       showNotification("success", "Análise de IA concluída!")
@@ -260,11 +277,13 @@ ${apiData["tendência"] ? `3. **Tendência:** Os dados mostram uma tendência ${
   }
 
   const exportAnalysis = () => {
-    const content = `
-RELATÓRIO DE ANÁLISE - AIRscan Capivaras
+    const networkName = networks.find((n) => n.id === selectedNetwork)?.name || "N/A"
+    const assetName = assets.find((a) => a.id === selectedAsset)?.name || "N/A"
+
+    const content = `RELATÓRIO DE ANÁLISE - AIRscan Capivaras
 Data: ${new Date().toLocaleDateString("pt-BR")}
-Rede: ${networks.find((n) => n.id === selectedNetwork)?.name || "N/A"}
-Ativo: ${assets.find((a) => a.id === selectedAsset)?.name || "N/A"}
+Rede: ${networkName}
+Ativo: ${assetName}
 Endpoint: ${selectedEndpoint}
 Período: ${selectedPeriod}
 
