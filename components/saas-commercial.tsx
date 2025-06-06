@@ -3,21 +3,15 @@ import { Check, Star, Zap, Shield, ArrowRight } from "lucide-react"
 export function SaasCommercial() {
   const plans = [
        {
-      name: "Sistema SaaS",
-      price: "R$ 49,90",
-      period: "/mês",
-      description: "Ideal para todas empresas",
+      name: "Sistema de monitoramento",
+      price: "Coleta de dados em tempo real",
+      period: "Monitoramento via sensores IOT",
+      description: "API Resposiva e modular",
       features: [
-        "Valor por rede monitorada",
-        "Dashboard completo",
-        "Alertas multi-canal",
-        "Relatórios em tempo real",
-        "API completa",
-        "Suporte 24/7",
-        "IA avançada",
-        "Integração ERP/MES",
+        "Rede de equipamentos monitorados",
+         "Monitoramento de ativos de rede",
       ],
-      popular: true,
+      popular: false,
     },
     {
       name: "Sistema SaaS",
@@ -37,21 +31,15 @@ export function SaasCommercial() {
       popular: true,
     },
      {
-      name: "Sistema SaaS",
-      price: "R$ 49,90",
-      period: "/mês",
-      description: "Ideal para todas empresas",
+      name: "Análise avançada com IA",
+      price: "Monitoramento preditivo",
+      period: "Insights de soluções",
+      description: "Aprendizagem com modelos de dados",
       features: [
-        "Valor por rede monitorada",
-        "Dashboard completo",
-        "Alertas multi-canal",
-        "Relatórios em tempo real",
-        "API completa",
-        "Suporte 24/7",
-        "IA avançada",
-        "Integração ERP/MES",
+        "Series temporais ",
+        "Modelos de deep learning",
       ],
-      popular: true,
+      popular: false,
     },
   ]
 
