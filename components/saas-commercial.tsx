@@ -5,7 +5,7 @@ export function SaasCommercial() {
        {
       name: "Sistema de monitoramento",
       price: "Coleta de dados em tempo real",
-      period: "Monitoramento via sensores IOT",
+      period: "",
       description: "API Resposiva e modular",
       features: [
         "Rede de equipamentos monitorados",
@@ -33,7 +33,7 @@ export function SaasCommercial() {
      {
       name: "Análise avançada com IA",
       price: "Monitoramento preditivo",
-      period: "Insights de soluções",
+      period: "",
       description: "Aprendizagem com modelos de dados",
       features: [
         "Series temporais ",
