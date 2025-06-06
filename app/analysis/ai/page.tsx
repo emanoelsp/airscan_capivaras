@@ -50,6 +50,43 @@ export default function AIAnalysisPage() {
     setTimeout(() => setNotification(null), 4000)
   }
 
+  // Função para converter markdown para HTML
+  const markdownToHtml = (markdown: string): string => {
+    let html = markdown
+
+    // Headers
+    html = html.replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold text-gray-900 mt-6 mb-3">$1</h3>')
+    html = html.replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold text-gray-900 mt-8 mb-4">$1</h2>')
+    html = html.replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold text-gray-900 mt-8 mb-4">$1</h1>')
+
+    // Bold text
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
+
+    // Lists
+    html = html.replace(/^- (.*$)/gim, '<li class="ml-4 mb-1">• $1</li>')
+    html = html.replace(/^(\d+)\. (.*$)/gim, '<li class="ml-4 mb-1">$1. $2</li>')
+
+    // Emojis and special markers
+    html = html.replace(/⚠️/g, '<span class="text-yellow-600">⚠️</span>')
+    html = html.replace(/✅/g, '<span class="text-green-600">✅</span>')
+    html = html.replace(/❌/g, '<span class="text-red-600">❌</span>')
+    html = html.replace(/💡/g, '<span class="text-blue-600">💡</span>')
+    html = html.replace(/🔧/g, '<span class="text-gray-600">🔧</span>')
+    html = html.replace(/📈/g, '<span class="text-green-600">📈</span>')
+    html = html.replace(/📊/g, '<span class="text-blue-600">📊</span>')
+    html = html.replace(/🎯/g, '<span class="text-purple-600">🎯</span>')
+    html = html.replace(/🔍/g, '<span class="text-indigo-600">🔍</span>')
+
+    // Line breaks
+    html = html.replace(/\n\n/g, '</p><p class="mb-3">')
+    html = html.replace(/\n/g, "<br>")
+
+    // Wrap in paragraphs
+    html = '<p class="mb-3">' + html + "</p>"
+
+    return html
+  }
+
   const endpoints = [
     { value: "metricasBasicas", label: "Métricas Básicas", icon: Activity },
     { value: "metricasCompleta", label: "Métricas Completas", icon: TrendingUp },
@@ -81,6 +118,7 @@ export default function AIAnalysisPage() {
     setCurrentPage(0)
     setHasMoreData(true)
     setApiData(null)
+    setAiAnalysis("")
   }, [selectedEndpoint])
 
   const fetchNetworks = async () => {
@@ -174,6 +212,7 @@ export default function AIAnalysisPage() {
       setLoadingData(true)
       setCurrentPage(0)
       setHasMoreData(true)
+      setApiData(null)
     }
 
     try {
@@ -181,7 +220,19 @@ export default function AIAnalysisPage() {
       const apiUrl = buildApiUrl(pageToFetch)
       console.log("Fetching data from:", apiUrl)
 
-      const response = await fetch(apiUrl)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
+      const response = await fetch(apiUrl, {
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      })
+
+      clearTimeout(timeoutId)
+
       if (!response.ok) {
         throw new Error(`Erro ao buscar dados da API: ${response.status} - ${response.statusText}`)
       }
@@ -189,19 +240,27 @@ export default function AIAnalysisPage() {
       const data = await response.json()
 
       if (selectedEndpoint === "dadosBrutos") {
+        // Validar se os dados são um array
+        if (!Array.isArray(data)) {
+          throw new Error("Dados brutos devem ser um array")
+        }
+
+        // Limitar a 20 registros para evitar crash
+        const limitedData = data.slice(0, 20)
+
         if (isLoadMore) {
           // Append new data to existing data
-          if (Array.isArray(data) && data.length > 0) {
+          if (limitedData.length > 0) {
             setApiData((prevData) => {
               if (Array.isArray(prevData)) {
-                return [...prevData, ...data]
+                return [...prevData, ...limitedData]
               }
-              return data
+              return limitedData
             })
             setCurrentPage(pageToFetch)
 
             // Check if we got less than 20 items, meaning no more data
-            if (data.length < 20) {
+            if (limitedData.length < 20) {
               setHasMoreData(false)
             }
           } else {
@@ -210,11 +269,11 @@ export default function AIAnalysisPage() {
           }
         } else {
           // First load
-          setApiData(data)
+          setApiData(limitedData)
           setCurrentPage(0)
 
           // Check if we got less than 20 items
-          if (Array.isArray(data) && data.length < 20) {
+          if (limitedData.length < 20) {
             setHasMoreData(false)
           }
         }
@@ -226,14 +285,28 @@ export default function AIAnalysisPage() {
       if (!isLoadMore) {
         showNotification("success", "Dados carregados com sucesso!")
       } else {
-        showNotification("success", `Carregados mais ${Array.isArray(data) ? data.length : 0} registros`)
+        showNotification("success", `Carregados mais ${Array.isArray(data) ? Math.min(data.length, 20) : 0} registros`)
       }
     } catch (error) {
       console.error("Erro ao buscar dados:", error)
-      showNotification(
-        "error",
-        `Erro ao carregar dados da API: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
-      )
+
+      if (error instanceof Error && error.name === "AbortError") {
+        showNotification("error", "Timeout na requisição - tente novamente")
+      } else {
+        showNotification(
+          "error",
+          `Erro ao carregar dados da API: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
+        )
+      }
+
+      // Reset states on error
+      if (isLoadMore) {
+        // Don't reset data on load more error
+      } else {
+        setApiData(null)
+        setCurrentPage(0)
+        setHasMoreData(true)
+      }
     } finally {
       if (isLoadMore) {
         setLoadingMore(false)
@@ -244,7 +317,9 @@ export default function AIAnalysisPage() {
   }
 
   const loadMoreData = () => {
-    fetchApiData(true)
+    if (!loadingMore && hasMoreData) {
+      fetchApiData(true)
+    }
   }
 
   const analyzeWithAI = async () => {
@@ -364,7 +439,12 @@ export default function AIAnalysisPage() {
 
       if (selectedEndpoint === "dadosBrutos") {
         if (Array.isArray(apiData) && apiData.length > 0) {
-          const valores = apiData.map((item) => item.valor).filter((v) => v !== undefined)
+          // Limitar análise para evitar crash - usar apenas uma amostra dos dados
+          const sampleSize = Math.min(apiData.length, 100) // Máximo 100 registros para análise
+          const sampleData = apiData.slice(0, sampleSize)
+
+          const valores = sampleData.map((item) => item.valor).filter((v) => v !== undefined && v !== null && !isNaN(v))
+
           if (valores.length > 0) {
             const min = Math.min(...valores)
             const max = Math.max(...valores)
@@ -372,21 +452,23 @@ export default function AIAnalysisPage() {
 
             analysis += `### 📊 Análise dos Dados Brutos\n`
             analysis += `**Total de Leituras Carregadas:** ${apiData.length}\n`
+            analysis += `**Amostra Analisada:** ${valores.length} registros\n`
             analysis += `**Valor Mínimo:** ${min.toFixed(2)} bar\n`
             analysis += `**Valor Máximo:** ${max.toFixed(2)} bar\n`
             analysis += `**Média:** ${media.toFixed(2)} bar\n`
             analysis += `**Amplitude:** ${(max - min).toFixed(2)} bar\n\n`
 
-            // Análise de estabilidade
+            // Análise de estabilidade (limitada para evitar crash)
             let variacoes = 0
-            for (let i = 1; i < valores.length; i++) {
+            for (let i = 1; i < Math.min(valores.length, 50); i++) {
+              // Máximo 50 comparações
               if (Math.abs(valores[i] - valores[i - 1]) > 0.1) {
                 variacoes++
               }
             }
-            const percentualVariacao = (variacoes / valores.length) * 100
+            const percentualVariacao = (variacoes / Math.min(valores.length, 50)) * 100
 
-            analysis += `**Variações Significativas:** ${percentualVariacao.toFixed(1)}% das leituras\n`
+            analysis += `**Variações Significativas:** ${percentualVariacao.toFixed(1)}% das leituras analisadas\n`
             if (percentualVariacao > 30) {
               analysis += `⚠️ Sistema com alta instabilidade\n`
             } else if (percentualVariacao > 15) {
@@ -398,7 +480,13 @@ export default function AIAnalysisPage() {
             if (hasMoreData) {
               analysis += `\n💡 **Dica:** Carregue mais dados para uma análise mais completa\n`
             }
+          } else {
+            analysis += `### 📊 Análise dos Dados Brutos\n`
+            analysis += `❌ **ERRO**: Não foi possível analisar os dados - valores inválidos ou ausentes\n`
           }
+        } else {
+          analysis += `### 📊 Análise dos Dados Brutos\n`
+          analysis += `❌ **ERRO**: Nenhum dado válido encontrado para análise\n`
         }
         analysis += `\n`
       }
@@ -462,9 +550,12 @@ ${aiAnalysis}
     if (!apiData) return null
 
     if (selectedEndpoint === "dadosBrutos" && Array.isArray(apiData)) {
-      const chartData = apiData.map((item) => ({
+      // Limitar dados para visualização para evitar crash
+      const maxDataPoints = 100
+      const chartData = apiData.slice(0, maxDataPoints).map((item, index) => ({
         ...item,
-        time: new Date(item.timestamp * 1000).toLocaleTimeString(),
+        time: item.timestamp ? new Date(item.timestamp * 1000).toLocaleTimeString() : `Ponto ${index + 1}`,
+        valor: typeof item.valor === "number" ? item.valor : 0,
       }))
 
       return (
@@ -472,7 +563,9 @@ ${aiAnalysis}
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Visualização de Dados Brutos</h3>
             <div className="text-sm text-gray-600">
-              {apiData.length} leituras carregadas {hasMoreData && "(mais dados disponíveis)"}
+              {apiData.length} leituras carregadas
+              {apiData.length > maxDataPoints && ` (mostrando ${maxDataPoints})`}
+              {hasMoreData && " (mais dados disponíveis)"}
             </div>
           </div>
           <ResponsiveContainer width="100%" height={300}>
@@ -498,7 +591,7 @@ ${aiAnalysis}
                 ) : (
                   <ChevronDown className="w-4 h-4 mr-2" />
                 )}
-                {loadingMore ? "Carregando..." : "Carregar Mais Dados"}
+                {loadingMore ? "Carregando..." : "Carregar Mais 20 Registros"}
               </button>
             </div>
           )}
@@ -698,8 +791,8 @@ ${aiAnalysis}
                 </div>
               </div>
               <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                <strong>💡 Dados Brutos:</strong> Por padrão, carrega as últimas 20 leituras. Use o botão "Carregar
-                Mais" para ver dados adicionais em páginas de 20 registros.
+                <strong>💡 Dados Brutos:</strong> Carrega automaticamente 20 registros por vez para otimizar
+                performance. Use "Carregar Mais" para adicionar mais 20 registros.
               </div>
             </div>
           )}
@@ -725,7 +818,7 @@ ${aiAnalysis}
               </button>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm overflow-x-auto mb-6">
+            <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm overflow-x-auto mb-6 max-h-96">
               <pre>{JSON.stringify(apiData, null, 2)}</pre>
             </div>
           </div>
@@ -750,7 +843,10 @@ ${aiAnalysis}
             </div>
 
             <div className="prose max-w-none">
-              <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">{aiAnalysis}</div>
+              <div
+                className="text-gray-700 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: markdownToHtml(aiAnalysis) }}
+              />
             </div>
           </div>
         )}
