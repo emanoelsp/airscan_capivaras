@@ -62,7 +62,7 @@ export function SaasCommercial() {
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center">
                   <Star className="w-4 h-4 mr-1" />
-                  Mais Popular
+                  Formas de contratação
                 </div>
               )}
               <div className="text-center mb-8">
