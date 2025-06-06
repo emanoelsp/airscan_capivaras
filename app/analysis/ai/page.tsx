@@ -131,7 +131,7 @@ export default function AIAnalysisPage() {
       }
 
       // Use the asset's apiUrl if available, otherwise fall back to network's apiUrl
-      const baseApiUrl = asset.apiUrl || network?.apiUrl || "http://18.212.36.236:8080"
+      const baseApiUrl = asset.apiUrl || network?.apiUrl || "https://18.212.36.236:8080"
 
       // Construct the API URL based on the selected endpoint and period
       const apiUrl = `${baseApiUrl}/${selectedEndpoint}/${selectedPeriod}`
@@ -153,7 +153,7 @@ export default function AIAnalysisPage() {
 
       // Fallback to the actual API endpoints if the asset/network specific ones fail
       try {
-        const fallbackUrl = `http://18.212.36.236:8080/${selectedEndpoint}${selectedEndpoint === "dadosBrutos" ? "" : `/${selectedPeriod}`}`
+        const fallbackUrl = `https://18.212.36.236:8080/${selectedEndpoint}${selectedEndpoint === "dadosBrutos" ? "" : `/${selectedPeriod}`}`
         console.log("Trying fallback URL:", fallbackUrl)
 
         const fallbackResponse = await fetch(fallbackUrl)
@@ -182,7 +182,7 @@ export default function AIAnalysisPage() {
       // Try to use an AI analysis API if available
       const asset = assets.find((a) => a.id === selectedAsset)
       const network = networks.find((n) => n.id === selectedNetwork)
-      const baseApiUrl = asset?.apiUrl || network?.apiUrl || "http://18.212.36.236:8080"
+      const baseApiUrl = asset?.apiUrl || network?.apiUrl || "https://18.212.36.236:8080"
 
       try {
         const aiApiUrl = `${baseApiUrl}/analiseIA/${selectedEndpoint}/${selectedPeriod}`
