@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { TrendingUp, Activity, AlertTriangle, Brain, Download, RefreshCw } from "lucide-react"
+import { TrendingUp, Activity, AlertTriangle, Brain, Download, RefreshCw, ChevronDown } from "lucide-react"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import {
@@ -37,10 +37,13 @@ export default function AIAnalysisPage() {
   const [loading, setLoading] = useState(true)
   const [loadingAssets, setLoadingAssets] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [notification, setNotification] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null)
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [currentPage, setCurrentPage] = useState(0)
+  const [hasMoreData, setHasMoreData] = useState(true)
 
   const showNotification = (type: "success" | "error" | "info", message: string) => {
     setNotification({ type, message })
@@ -72,6 +75,13 @@ export default function AIAnalysisPage() {
       fetchAssets(selectedNetwork)
     }
   }, [selectedNetwork])
+
+  useEffect(() => {
+    // Reset pagination when endpoint changes
+    setCurrentPage(0)
+    setHasMoreData(true)
+    setApiData(null)
+  }, [selectedEndpoint])
 
   const fetchNetworks = async () => {
     try {
@@ -117,7 +127,7 @@ export default function AIAnalysisPage() {
     }
   }
 
-  const buildApiUrl = () => {
+  const buildApiUrl = (page = 0) => {
     const baseUrl = "https://18.212.36.236:8080"
 
     if (selectedEndpoint === "metricasBasicas") {
@@ -137,25 +147,38 @@ export default function AIAnalysisPage() {
     }
 
     if (selectedEndpoint === "dadosBrutos") {
+      const limit = 20
+      const offset = page * limit
+
+      let url = `${baseUrl}/dadosBrutos?limit=${limit}&offset=${offset}`
+
       if (startDate && endDate) {
-        return `${baseUrl}/dadosBrutos?data_inicio=${startDate}&data_fim=${endDate}`
-      } else {
-        return `${baseUrl}/dadosBrutos`
+        url += `&data_inicio=${startDate}&data_fim=${endDate}`
       }
+
+      return url
     }
 
     return `${baseUrl}/${selectedEndpoint}`
   }
 
-  const fetchApiData = async () => {
+  const fetchApiData = async (isLoadMore = false) => {
     if (!selectedAsset) {
       showNotification("error", "Selecione um ativo primeiro")
       return
     }
 
-    setLoadingData(true)
+    if (isLoadMore) {
+      setLoadingMore(true)
+    } else {
+      setLoadingData(true)
+      setCurrentPage(0)
+      setHasMoreData(true)
+    }
+
     try {
-      const apiUrl = buildApiUrl()
+      const pageToFetch = isLoadMore ? currentPage + 1 : 0
+      const apiUrl = buildApiUrl(pageToFetch)
       console.log("Fetching data from:", apiUrl)
 
       const response = await fetch(apiUrl)
@@ -164,8 +187,47 @@ export default function AIAnalysisPage() {
       }
 
       const data = await response.json()
-      setApiData(data)
-      showNotification("success", "Dados carregados com sucesso!")
+
+      if (selectedEndpoint === "dadosBrutos") {
+        if (isLoadMore) {
+          // Append new data to existing data
+          if (Array.isArray(data) && data.length > 0) {
+            setApiData((prevData) => {
+              if (Array.isArray(prevData)) {
+                return [...prevData, ...data]
+              }
+              return data
+            })
+            setCurrentPage(pageToFetch)
+
+            // Check if we got less than 20 items, meaning no more data
+            if (data.length < 20) {
+              setHasMoreData(false)
+            }
+          } else {
+            setHasMoreData(false)
+            showNotification("info", "Não há mais dados para carregar")
+          }
+        } else {
+          // First load
+          setApiData(data)
+          setCurrentPage(0)
+
+          // Check if we got less than 20 items
+          if (Array.isArray(data) && data.length < 20) {
+            setHasMoreData(false)
+          }
+        }
+      } else {
+        // For other endpoints, just set the data normally
+        setApiData(data)
+      }
+
+      if (!isLoadMore) {
+        showNotification("success", "Dados carregados com sucesso!")
+      } else {
+        showNotification("success", `Carregados mais ${Array.isArray(data) ? data.length : 0} registros`)
+      }
     } catch (error) {
       console.error("Erro ao buscar dados:", error)
       showNotification(
@@ -173,8 +235,16 @@ export default function AIAnalysisPage() {
         `Erro ao carregar dados da API: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
       )
     } finally {
-      setLoadingData(false)
+      if (isLoadMore) {
+        setLoadingMore(false)
+      } else {
+        setLoadingData(false)
+      }
     }
+  }
+
+  const loadMoreData = () => {
+    fetchApiData(true)
   }
 
   const analyzeWithAI = async () => {
@@ -301,7 +371,7 @@ export default function AIAnalysisPage() {
             const media = valores.reduce((a, b) => a + b, 0) / valores.length
 
             analysis += `### 📊 Análise dos Dados Brutos\n`
-            analysis += `**Total de Leituras:** ${apiData.length}\n`
+            analysis += `**Total de Leituras Carregadas:** ${apiData.length}\n`
             analysis += `**Valor Mínimo:** ${min.toFixed(2)} bar\n`
             analysis += `**Valor Máximo:** ${max.toFixed(2)} bar\n`
             analysis += `**Média:** ${media.toFixed(2)} bar\n`
@@ -323,6 +393,10 @@ export default function AIAnalysisPage() {
               analysis += `⚠️ Sistema com instabilidade moderada\n`
             } else {
               analysis += `✅ Sistema estável\n`
+            }
+
+            if (hasMoreData) {
+              analysis += `\n💡 **Dica:** Carregue mais dados para uma análise mais completa\n`
             }
           }
         }
@@ -395,7 +469,12 @@ ${aiAnalysis}
 
       return (
         <div className="bg-white rounded-xl p-6 shadow-sm border mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Visualização de Dados Brutos</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Visualização de Dados Brutos</h3>
+            <div className="text-sm text-gray-600">
+              {apiData.length} leituras carregadas {hasMoreData && "(mais dados disponíveis)"}
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -406,6 +485,23 @@ ${aiAnalysis}
               <Line type="monotone" dataKey="valor" stroke="#3B82F6" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
+
+          {hasMoreData && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={loadMoreData}
+                disabled={loadingMore}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition-colors disabled:opacity-50 flex items-center mx-auto"
+              >
+                {loadingMore ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                )}
+                {loadingMore ? "Carregando..." : "Carregar Mais Dados"}
+              </button>
+            </div>
+          )}
         </div>
       )
     }
@@ -565,7 +661,7 @@ ${aiAnalysis}
 
             <div className="flex items-end">
               <button
-                onClick={fetchApiData}
+                onClick={() => fetchApiData(false)}
                 disabled={loadingData || !selectedAsset}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50 flex items-center justify-center"
               >
@@ -580,31 +676,37 @@ ${aiAnalysis}
           </div>
 
           {selectedEndpoint === "dadosBrutos" && (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Data Início (Opcional)</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            <div className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Data Início (Opcional)</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Data Fim (Opcional)</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Data Fim (Opcional)</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+                <strong>💡 Dados Brutos:</strong> Por padrão, carrega as últimas 20 leituras. Use o botão "Carregar
+                Mais" para ver dados adicionais em páginas de 20 registros.
               </div>
             </div>
           )}
 
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600">
-              <strong>URL da API:</strong> {buildApiUrl()}
+              <strong>URL da API:</strong> {buildApiUrl(currentPage)}
             </p>
           </div>
         </div>
@@ -673,7 +775,7 @@ ${aiAnalysis}
                   {endpoint.value === "metricasCompleta" && "Análise estatística aprofundada"}
                   {endpoint.value === "tendencia" && "Análise de tendências temporais"}
                   {endpoint.value === "qualidadeDados" && "Avaliação da consistência dos dados"}
-                  {endpoint.value === "dadosBrutos" && "Dados brutos de pressão"}
+                  {endpoint.value === "dadosBrutos" && "Dados brutos de pressão (paginado)"}
                 </p>
               </div>
             )
